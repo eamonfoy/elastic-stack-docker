@@ -47,40 +47,6 @@ Stack Version: [7.9.1](https://www.elastic.co/blog/elastic-stack-7-9-1-released)
 - [Curator](https://github.com/elastic/curator) with Crond preconfigured for Automated Scheduled tasks (e.g Snapshots to S3).
 - [Rubban](https://github.com/sherifabdlnaby/rubban) for Kibana curating tasks.
 
-#### More points
-And comparing Elastdocker and the popular [deviantony/docker-elk](https://github.com/deviantony/docker-elk)
-
-<details><summary>Expand...</summary>
-<p>
-
-One of the most popular ELK on Docker repositories is the awesome [deviantony/docker-elk](https://github.com/deviantony/docker-elk).
-Elastdocker differs from `deviantony/docker-elk` in the following points.
-
-- Security enabled by default using Basic license, not Trial.
-
-- Persisting data by default in a volume.
-
-- Run in Production Mode (by enabling SSL on Transport Layer, and add initial master node settings).
-
-- Persisting Generated Keystore, and create an extendable script that makes it easier to recreate it every-time the container is created.
-
-- Parameterize credentials in .env instead of hardcoding `elastich:changeme` in every component config.
-
-- Parameterize all other Config like Heap Size.
-
-- Add recommended environment configurations as Ulimits and Swap disable to the docker-compose.
-
-- Make it ready to be extended into a multinode cluster.
-
-- Configuring the Self-Monitoring and the Filebeat agent that ship ELK logs to ELK itself. (as a step to shipping it to a monitoring cluster in the future).
-
-- Configured tools and Prometheus Exporters.
-
-- The Makefile that simplifies everything into some simple commands.
-
-</p>
-</details>
-
 -----
 
 # Requirements
@@ -92,11 +58,9 @@ Elastdocker differs from `deviantony/docker-elk` in the following points.
 
 1. Clone the Repository
      ```bash
-     git clone https://github.com/sherifabdlnaby/elastdocker.git
+     git clone https://github.com/eamonfoy/elastic-stack-docker.git
      ```
-     or:
-    <a href="https://github.com/sherifabdlnaby/elastdocker/generate"><img src="https://user-images.githubusercontent.com/16992394/92532187-08e81180-f230-11ea-96c9-07e9331411bc.png" alt="create repository from template"></a>
-
+    
 2. Initialize Elasticsearch Keystore and SSL Certificates
     ```shell
     $ make setup
@@ -117,46 +81,6 @@ Elastdocker differs from `deviantony/docker-elk` in the following points.
 
 Whatever your Host (e.g AWS EC2, Azure, On-premise server), once you expose your host to the network ELK component will be accessible on their respective ports.
 
-### Docker Swarm Support
-
-Elastdocker can be deployed to Docker Swarm using `make swarm-deploy`
-
-However it is not recommended to [depend on Docker Swarm](https://boxboat.com/2019/12/10/migrate-docker-swarm-to-kubernetes/); if your scale needs a multi-host cluster to host your ELK then Kubernetes is the recommended next step.
-
-Elastdocker should be used for small production workloads enough to fit on a single host.
-
-> Docker Swarm lacks some features such as `ulimits` used to disable swapping in Elasticsearch container, please change `bootstrap.memory_lock` to `false` in docker-compose.yml and find an [alternative way](https://www.elastic.co/guide/en/elasticsearch/reference/master/setup-configuration-memory.html) to disable swapping in your swarm cluster.
-
-## Additional Commands
-
-<details><summary>Expand</summary>
-<p>
-
-#### To Start Monitoring and Prometheus Exporters
-```shell
-$ make monitoring
-```
-#### To Start Tools (ElastAlert, Rubban, and Curator)
-```shell
-$ make tools
-```
-#### To Start **Elastic Stack, Tools and Monitoring**
-```
-$ make all
-```
-#### To Start 2 Extra Elasticsearch nodes (recommended for experimenting only)
-```shell
-$ make nodes
-```
-#### To Rebuild Images
-```shell
-$ make build
-```
-#### Bring down the stack.
-```shell
-$ make down
-```
-
 #### Reset everything, Remove all containers, and delete **DATA**!
 ```shell
 $ make prune
@@ -166,7 +90,6 @@ $ make prune
 </details>
 
 # Configuration
-
 * Some Configuration are parameterized in the `.env` file.
   * `ELASTIC_PASSWORD`, user `elastic`'s password (default: `changeme` _pls_).
   * `ELK_VERSION` Elastic Stack Version (default: `7.9.1`)
@@ -183,32 +106,13 @@ $ make prune
 * Rubban Configuration using Docker-Compose passed Environment Variables.
 
 ### Setting Up Keystore
-
 You can extend the Keystore generation script by adding keys to `./setup/keystore.sh` script. (e.g Add S3 Snapshot Repository Credentials)
 
 To Re-generate Keystore:
 ```
 make keystore
 ```
-
-### Enable SSL on HTTP
-
-By default, only Transport Layer has SSL Enabled, to enable SSL on HTTP layer, add the following lines to `elasticsearch.yml`
-```yaml
-## - http
-xpack.security.http.ssl.enabled: true
-xpack.security.http.ssl.key: certs/elasticsearch.key
-xpack.security.http.ssl.certificate: certs/elasticsearch.crt
-xpack.security.http.ssl.certificate_authorities: certs/ca.crt
-xpack.security.http.ssl.client_authentication: optional
-```
-
-> ⚠️ Enabling SSL on HTTP layer will require all clients that connect to Elasticsearch to configure SSL connection for HTTP, this includes all the current configured parts of the stack (e.g Logstash, Kibana, Curator, etc) plus any library/binding that connects to Elasticsearch from your application code.
-
-
 ### Notes
-
-- Adding Two Extra Nodes to the cluster will make the cluster depending on them and won't start without them again.
 
 - Makefile is a wrapper around `Docker-Compose` commands, use `make help` to know every command.
 
@@ -226,31 +130,3 @@ xpack.security.http.ssl.client_authentication: optional
 
 ---------------------------
 
-# Monitoring The Cluster
-
-### Via Prometheus Exporters
-If you started Prometheus Exporters using `make monitoring` command. Prometheus Exporters will expose metrics at the following ports.
-
-| **Prometheus Exporter**      | **Port**     | **Recommended Grafana Dashboard**                                         |
-|--------------------------    |----------    |------------------------------------------------  |
-| `elasticsearch-exporter`     | `9114`       | [Elasticsearch by Kristian Jensen](https://grafana.com/grafana/dashboards/4358)                                                |
-| `logstash-exporter`          | `9304`       | [logstash-monitoring by dpavlos](https://github.com/dpavlos/logstash-monitoring)                                               |
-
-![Metrics](https://user-images.githubusercontent.com/16992394/78685076-89a58900-78f1-11ea-959b-ce374fe51500.jpg)
-
-### Via Self-Monitoring
-
-Head to Stack Monitoring tab in Kibana to see cluster metrics for all stack components.
-
-![Metrics](https://user-images.githubusercontent.com/16992394/65841358-b0bb4680-e321-11e9-9a71-36a1d6fb2a41.png)
-![Metrics](https://user-images.githubusercontent.com/16992394/65841362-b6189100-e321-11e9-93e4-b7b2caa5a37d.jpg)
-
-> In Production, cluster metrics should be shipped to another dedicated monitoring cluster.
-
-# License
-[MIT License](https://raw.githubusercontent.com/sherifabdlnaby/elastdocker/master/LICENSE)
-Copyright (c) 2020 Sherif Abdel-Naby
-
-# Contribution
-
-PR(s) are Open and Welcomed.
